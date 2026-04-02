@@ -1,0 +1,5 @@
+{
+  "name": "رابطہ (Raabita) - Vehicle QR Code Call Scanner",
+  "description": "A service that provides vehicle QR codes. When scanned, it allows people to call the vehicle owner with masked numbers.",
+  "requestFramePermissions": []
+}
