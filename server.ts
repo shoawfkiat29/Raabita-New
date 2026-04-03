@@ -10,22 +10,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize Firebase Admin
+let db: admin.firestore.Firestore | null = null;
 try {
-  const serviceAccountPath = path.join(__dirname, "service-account.json");
-  if (fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
+  const configPath = path.join(__dirname, "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+      projectId: config.projectId,
     });
-    console.log("Firebase Admin initialized successfully.");
+    db = admin.firestore(config.firestoreDatabaseId);
+    console.log("Firebase Admin initialized successfully with project:", config.projectId);
   } else {
-    console.warn("service-account.json not found. Firebase Admin not initialized.");
+    console.warn("firebase-applet-config.json not found. Firebase Admin not initialized.");
   }
 } catch (error) {
   console.error("Failed to initialize Firebase Admin:", error);
 }
-
-const db = admin.apps.length ? admin.firestore() : null;
 
 let twilioClient: twilio.Twilio | null = null;
 function getTwilio() {
@@ -41,7 +41,7 @@ function getTwilio() {
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 5000;
+  const PORT = 3000;
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));

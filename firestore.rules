@@ -1,0 +1,72 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: orders
+// Document ID: random string
+// Fields:
+//   - id: string (required) - Order ID
+//   - name: string (required) - Customer name
+//   - email: string (required) - Customer email
+//   - phone: string (required) - Customer phone
+//   - address: string (required) - Shipping address
+//   - plan: string (required) - Selected plan
+//   - qrId: string (required) - Associated QR ID
+//   - paymentMethod: string (required) - Payment method used
+//   - walletAddress: string (optional) - Crypto wallet address
+//   - status: string (required) - Order status (pending, etc.)
+//   - createdAt: timestamp (required) - Creation time
+//
+// Collection: qrs
+// Document ID: random string
+// Fields:
+//   - id: string (required) - QR ID
+//   - registered: bool (required) - Whether the QR is registered
+//   - ownerName: string (optional) - Owner's name
+//   - ownerPhone: string (optional) - Owner's phone
+//   - vehicleNumber: string (optional) - Vehicle number
+//   - createdAt: timestamp (required) - Creation time
+//   - registeredAt: timestamp (optional) - Registration time
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "shoawfkiat29@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      // Only admins can read or write orders
+      allow read, write: if isAdmin();
+    }
+
+    // QRs Collection
+    match /qrs/{qrId} {
+      // Only admins can read or write QR data directly
+      // The server handles public scans and registrations
+      allow read, write: if isAdmin();
+    }
+
+    // Users Collection (for roles)
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
+    }
+  }
+}

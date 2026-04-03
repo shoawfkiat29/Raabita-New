@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Customer order for a Raabita QR code",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "plan": { "type": "string" },
+        "qrId": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "walletAddress": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "phone", "address", "plan", "qrId", "status", "createdAt"]
+    },
+    "QRCode": {
+      "title": "QRCode",
+      "description": "A vehicle QR code and its registration status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "registered": { "type": "boolean" },
+        "ownerName": { "type": "string" },
+        "ownerPhone": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "registeredAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "registered", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of customer orders"
+    },
+    "/qrs/{qrId}": {
+      "schema": "QRCode",
+      "description": "Collection of QR codes"
+    }
+  }
+}
