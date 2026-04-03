@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "motion/react";
 export default function Checkout() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ orderId: string; qrId: string } | null>(null);
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [walletError, setWalletError] = useState<string>("");
@@ -24,6 +25,8 @@ export default function Checkout() {
   const BANK_ACCOUNT_NUMBER = import.meta.env.VITE_BANK_ACCOUNT_NUMBER || "0000123456789";
   const BANK_IFSC = import.meta.env.VITE_BANK_IFSC || "HDFC0001234";
   const BANK_NAME = import.meta.env.VITE_BANK_NAME || "HDFC Bank";
+
+  console.log("Bank Details Loaded:", { BANK_ACCOUNT_NAME, BANK_ACCOUNT_NUMBER, BANK_IFSC, BANK_NAME });
 
   const connectMetaMask = async () => {
     setWalletError("");
@@ -46,23 +49,36 @@ export default function Checkout() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries());
 
     try {
+      console.log("Submitting order with data:", { ...data, plan: "standard", paymentMethod });
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...data, plan: "standard", paymentMethod, walletAddress }),
       });
       
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        throw new Error("Invalid response from server");
+      }
+
+      console.log("Order response:", result);
+      
       if (result.success) {
         setSuccess(result);
+      } else {
+        setError(result.error || "Failed to process order. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Order failed:", error);
+      setError(error.message || "A network error occurred. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -101,6 +117,21 @@ export default function Checkout() {
                 </p>
                 <p className="text-xs text-slate-500 mt-1">We will ship your physical QR code sticker within 24 hours.</p>
               </div>
+
+              {paymentMethod === "bank" && (
+                <div className="bg-amber-50 p-6 rounded-xl border border-amber-200 text-left space-y-3">
+                  <h4 className="font-bold text-amber-900 flex items-center gap-2">
+                    <Building2 className="w-4 h-4" /> Complete Your Payment
+                  </h4>
+                  <p className="text-sm text-amber-800">Please transfer <strong>Rs 249</strong> to the following account to activate your order:</p>
+                  <div className="space-y-2 pt-2 border-t border-amber-200">
+                    <BankDetailRow label="Account Name" value={BANK_ACCOUNT_NAME} />
+                    <BankDetailRow label="Account Number" value={BANK_ACCOUNT_NUMBER} />
+                    <BankDetailRow label="IFSC Code" value={BANK_IFSC} />
+                    <BankDetailRow label="Bank Name" value={BANK_NAME} />
+                  </div>
+                </div>
+              )}
               
               <div className="flex flex-col items-center justify-center bg-white p-6 rounded-2xl border-2 border-dashed border-slate-200 mx-auto">
                 <QRCodeSVG value={qrUrl} size={160} level="H" includeMargin />
@@ -276,7 +307,12 @@ export default function Checkout() {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="p-6 bg-slate-50 border-t border-slate-100">
+                <CardFooter className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col gap-4">
+                  {error && (
+                    <div className="w-full p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 rotate-180" /> {error}
+                    </div>
+                  )}
                   <Button 
                     type="submit" 
                     className="w-full h-14 text-lg rounded-xl shadow-lg shadow-blue-500/20" 
