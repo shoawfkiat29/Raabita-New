@@ -17,14 +17,14 @@ export default function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState<"card" | "crypto" | "upi" | "bank">("upi");
 
   // TODO: Replace this with your actual UPI ID
-  const YOUR_REAL_UPI_ID = import.meta.env.VITE_UPI_ID || "yourname@bank";
+  const YOUR_REAL_UPI_ID = import.meta.env.VITE_UPI_ID || "9596777782@ybl";
   const upiUri = `upi://pay?pa=${YOUR_REAL_UPI_ID}&pn=Raabita&am=249&cu=INR`;
 
   // Bank Details from Environment Variables
-  const BANK_ACCOUNT_NAME = import.meta.env.VITE_BANK_ACCOUNT_NAME || "Raabita Technologies";
-  const BANK_ACCOUNT_NUMBER = import.meta.env.VITE_BANK_ACCOUNT_NUMBER || "0000123456789";
-  const BANK_IFSC = import.meta.env.VITE_BANK_IFSC || "HDFC0001234";
-  const BANK_NAME = import.meta.env.VITE_BANK_NAME || "HDFC Bank";
+  #const BANK_ACCOUNT_NAME = import.meta.env.VITE_BANK_ACCOUNT_NAME || "Raabita Technologies";
+  #const BANK_ACCOUNT_NUMBER = import.meta.env.VITE_BANK_ACCOUNT_NUMBER || "0000123456789";
+  #const BANK_IFSC = import.meta.env.VITE_BANK_IFSC || "HDFC0001234";
+  #const BANK_NAME = import.meta.env.VITE_BANK_NAME || "HDFC Bank";
 
   console.log("Bank Details Loaded:", { BANK_ACCOUNT_NAME, BANK_ACCOUNT_NUMBER, BANK_IFSC, BANK_NAME });
 
