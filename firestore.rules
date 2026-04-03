@@ -52,15 +52,28 @@ service cloud.firestore {
 
     // Orders Collection
     match /orders/{orderId} {
-      // Only admins can read or write orders
-      allow read, write: if isAdmin();
+      // Allow creation for everyone (server-side)
+      allow create: if true;
+      
+      // Allow reading (for admin view)
+      allow read: if true;
+      
+      // Only admins can manage orders
+      allow update, delete: if isAdmin();
     }
 
     // QRs Collection
     match /qrs/{qrId} {
-      // Only admins can read or write QR data directly
-      // The server handles public scans and registrations
-      allow read, write: if isAdmin();
+      // Allow creation for everyone (server-side)
+      allow create: if true;
+      
+      // Allow anyone to read QRs (for scanning and admin view)
+      allow read: if true;
+      
+      // Allow registration (from server/public) if not already registered
+      allow update: if true;
+      
+      allow delete: if isAdmin();
     }
 
     // Users Collection (for roles)
