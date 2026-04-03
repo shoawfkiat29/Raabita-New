@@ -3,35 +3,42 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import twilio from "twilio";
-import admin from "firebase-admin";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { initializeApp } from "firebase/app";
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  updateDoc, 
+  getDocs, 
+  query, 
+  orderBy, 
+  serverTimestamp 
+} from "firebase/firestore";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin
+// Initialize Firebase
 let db: any = null;
 try {
   const configPath = path.join(__dirname, "firebase-applet-config.json");
   if (fs.existsSync(configPath)) {
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
     
-    // Initialize the default app if not already initialized
-    if (admin.apps.length === 0) {
-      admin.initializeApp({
-        projectId: config.projectId,
-      });
-    }
+    // Initialize Firebase Client SDK
+    const firebaseApp = initializeApp(config);
     
     // Get Firestore instance for the specific database ID
-    db = getFirestore(config.firestoreDatabaseId);
-    console.log("Firebase Admin initialized successfully with project:", config.projectId, "and database:", config.firestoreDatabaseId);
+    db = getFirestore(firebaseApp, config.firestoreDatabaseId);
+    console.log("Firebase initialized successfully with project:", config.projectId, "and database:", config.firestoreDatabaseId);
   } else {
-    console.warn("firebase-applet-config.json not found. Firebase Admin not initialized.");
+    console.warn("firebase-applet-config.json not found. Firebase not initialized.");
   }
 } catch (error) {
-  console.error("Failed to initialize Firebase Admin:", error);
+  console.error("Failed to initialize Firebase:", error);
 }
 
 let twilioClient: twilio.Twilio | null = null;
@@ -70,7 +77,7 @@ async function startServer() {
         paymentMethod: paymentMethod || "card",
         walletAddress: walletAddress || null,
         status: "pending",
-        createdAt: db ? FieldValue.serverTimestamp() : new Date().toISOString()
+        createdAt: db ? serverTimestamp() : new Date().toISOString()
       };
       
       const qrData = {
@@ -79,16 +86,16 @@ async function startServer() {
         ownerName: null,
         ownerPhone: null,
         vehicleNumber: null,
-        createdAt: db ? FieldValue.serverTimestamp() : new Date().toISOString()
+        createdAt: db ? serverTimestamp() : new Date().toISOString()
       };
-
+ 
       if (db) {
-        await db.collection("orders").doc(orderId).set(order);
-        await db.collection("qrs").doc(qrId).set(qrData);
+        await setDoc(doc(db, "orders", orderId), order);
+        await setDoc(doc(db, "qrs", qrId), qrData);
       } else {
         console.warn("Firebase not initialized. Order not saved to DB.");
       }
-
+ 
       res.json({ success: true, orderId, qrId });
     } catch (error) {
       console.error("Error creating order:", error);
@@ -101,12 +108,12 @@ async function startServer() {
     try {
       if (!db) return res.status(500).json({ error: "Database not connected" });
       
-      const doc = await db.collection("qrs").doc(req.params.id).get();
-      if (!doc.exists) {
+      const docSnap = await getDoc(doc(db, "qrs", req.params.id));
+      if (!docSnap.exists()) {
         return res.status(404).json({ error: "QR Code not found" });
       }
       
-      const qr = doc.data() as any;
+      const qr = docSnap.data() as any;
       // Don't send the owner's phone number to the client for privacy
       const safeQr = {
         id: qr.id,
@@ -125,26 +132,26 @@ async function startServer() {
   app.post("/api/qr/:id/register", async (req, res) => {
     try {
       if (!db) return res.status(500).json({ error: "Database not connected" });
-
+ 
       const { ownerName, ownerPhone, vehicleNumber } = req.body;
-      const docRef = db.collection("qrs").doc(req.params.id);
-      const doc = await docRef.get();
+      const docRef = doc(db, "qrs", req.params.id);
+      const docSnap = await getDoc(docRef);
       
-      if (!doc.exists) {
+      if (!docSnap.exists()) {
         return res.status(404).json({ error: "QR Code not found" });
       }
       
-      const qr = doc.data() as any;
+      const qr = docSnap.data() as any;
       if (qr.registered) {
         return res.status(400).json({ error: "QR Code is already registered" });
       }
-
-      await docRef.update({
+ 
+      await updateDoc(docRef, {
         registered: true,
         ownerName,
         ownerPhone,
         vehicleNumber,
-        registeredAt: FieldValue.serverTimestamp()
+        registeredAt: serverTimestamp()
       });
       
       res.json({ success: true, qr: { ...qr, registered: true, ownerName, ownerPhone, vehicleNumber } });
@@ -158,15 +165,15 @@ async function startServer() {
   app.post("/api/qr/:id/call", async (req, res) => {
     try {
       if (!db) return res.status(500).json({ error: "Database not connected" });
-
+ 
       const { callerPhone } = req.body;
-      const doc = await db.collection("qrs").doc(req.params.id).get();
+      const docSnap = await getDoc(doc(db, "qrs", req.params.id));
       
-      if (!doc.exists) {
+      if (!docSnap.exists()) {
         return res.status(404).json({ error: "Invalid or unregistered QR Code" });
       }
-
-      const qr = doc.data() as any;
+ 
+      const qr = docSnap.data() as any;
       if (!qr.registered) {
         return res.status(404).json({ error: "Invalid or unregistered QR Code" });
       }
@@ -236,9 +243,9 @@ async function startServer() {
         res.type('text/xml');
         return res.send(twiml.toString());
       }
-
-      const doc = await db.collection("qrs").doc(req.params.id).get();
-      const qr = doc.exists ? doc.data() as any : null;
+ 
+      const docSnap = await getDoc(doc(db, "qrs", req.params.id));
+      const qr = docSnap.exists() ? docSnap.data() as any : null;
       
       if (qr && qr.registered) {
         twiml.say("Connecting you to the vehicle owner. Please wait.");
@@ -262,21 +269,23 @@ async function startServer() {
   app.get("/api/admin/qrs", async (req, res) => {
     try {
       if (!db) return res.json([]);
-      const snapshot = await db.collection("qrs").orderBy("createdAt", "desc").get();
-      const qrs = snapshot.docs.map(doc => doc.data());
+      const q = query(collection(db, "qrs"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const qrs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       res.json(qrs);
     } catch (error) {
       console.error("Error fetching admin QRs:", error);
       res.status(500).json({ error: "Failed to fetch QRs" });
     }
   });
-
+ 
   // Admin route to see all Orders
   app.get("/api/admin/orders", async (req, res) => {
     try {
       if (!db) return res.json([]);
-      const snapshot = await db.collection("orders").orderBy("createdAt", "desc").get();
-      const orders = snapshot.docs.map(doc => doc.data());
+      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       res.json(orders);
     } catch (error) {
       console.error("Error fetching admin orders:", error);
