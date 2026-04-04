@@ -239,10 +239,6 @@ export default function Checkout() {
                         <div className="flex justify-center bg-white p-4 rounded-xl border border-slate-200 inline-block mx-auto shadow-sm">
                           <QRCodeSVG value={upiUri} size={140} />
                         </div>
-                        <div>
-                          <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">UPI ID</p>
-                          <p className="text-sm font-mono font-medium text-slate-900 bg-white py-2 px-4 rounded-lg border border-slate-200 inline-block">{YOUR_REAL_UPI_ID}</p>
-                        </div>
                       </div>
                     )}
 
