@@ -197,12 +197,12 @@ async function startServer() {
         to: fromNumber,
         from: enablexVirtualNumber,
         action_on_connect: {
-          play: {
-            text: "Please wait while we connect you to the vehicle owner.",
-            voice: "female",
-            language: "en-IN"
+          connect: {
+            from: enablexVirtualNumber,
+            to: toNumber
           }
-        },
+        }
+      };
         // In a real scenario, you would use EnableX webhooks to bridge the call after the first party answers.
         // For simplicity in this API call, we initiate the call to the scanner.
         // To bridge immediately, some APIs support a connect action directly:
