@@ -180,7 +180,7 @@ async function startServer() {
       const formatPhone = (p: string) => {
         const num = p.replace(/\D/g, '');
         // If it's a 10 digit Indian number, prefix with 91
-        return num.length === 10 ? `91${num}` : num;
+        return num.length === 10 ? `+91${num}` : `+${num}`;
       };
 
       const fromNumber = formatPhone(callerPhone); // The person scanning
@@ -202,7 +202,6 @@ async function startServer() {
             to: toNumber
           }
         }
-      };
         // In a real scenario, you would use EnableX webhooks to bridge the call after the first party answers.
         // For simplicity in this API call, we initiate the call to the scanner.
         // To bridge immediately, some APIs support a connect action directly:
