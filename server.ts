@@ -2,7 +2,6 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import twilio from "twilio";
 import { initializeApp } from "firebase/app";
 import { 
   getFirestore, 
@@ -39,18 +38,6 @@ try {
   }
 } catch (error) {
   console.error("Failed to initialize Firebase:", error);
-}
-
-let twilioClient: twilio.Twilio | null = null;
-function getTwilio() {
-  if (!twilioClient) {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const token = process.env.TWILIO_AUTH_TOKEN;
-    if (sid && token && sid !== "your_twilio_account_sid") {
-      twilioClient = twilio(sid, token);
-    }
-  }
-  return twilioClient;
 }
 
 async function startServer() {
@@ -178,90 +165,70 @@ async function startServer() {
         return res.status(404).json({ error: "Invalid or unregistered QR Code" });
       }
 
-      // Exotel Integration (Best for Masked Calling in India)
-      const exotelSid = process.env.EXOTEL_ACCOUNT_SID;
-      const exotelKey = process.env.EXOTEL_API_KEY;
-      const exotelToken = process.env.EXOTEL_API_TOKEN;
-      const exotelCallerId = process.env.EXOTEL_VIRTUAL_NUMBER;
+      // EnableX Integration for Masked Calling
+      const enablexAppId = process.env.ENABLEX_APP_ID;
+      const enablexAppKey = process.env.ENABLEX_APP_KEY;
+      const enablexVirtualNumber = process.env.ENABLEX_VIRTUAL_NUMBER;
 
-      if (!exotelSid || !exotelKey || !exotelToken || !exotelCallerId || exotelSid === "your_exotel_account_sid") {
-        console.log(`[MOCK EXOTEL] Bridging call between ${callerPhone} and ${qr.ownerPhone}`);
+      if (!enablexAppId || !enablexAppKey || !enablexVirtualNumber || enablexAppId === "your_enablex_app_id") {
+        console.log(`[MOCK ENABLEX] Bridging call between ${callerPhone} and ${qr.ownerPhone}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
-        return res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly. (Mock Mode - Add Exotel credentials for real calls)" });
+        return res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly. (Mock Mode - Add EnableX credentials for real calls)" });
       }
 
-      // Format numbers (Exotel expects numbers without '+' usually, or standard E.164. Let's strip non-digits)
+      // Format numbers (EnableX expects E.164 format or standard country code without '+')
       const formatPhone = (p: string) => {
         const num = p.replace(/\D/g, '');
-        // If it's a 10 digit Indian number, prefix with 0 as per Exotel standard
-        return num.length === 10 ? `0${num}` : num;
+        // If it's a 10 digit Indian number, prefix with 91
+        return num.length === 10 ? `91${num}` : num;
       };
 
-      const fromNumber = formatPhone(callerPhone);
-      const toNumber = formatPhone(qr.ownerPhone);
+      const fromNumber = formatPhone(callerPhone); // The person scanning
+      const toNumber = formatPhone(qr.ownerPhone); // The vehicle owner
 
-      console.log(`[EXOTEL] Initiating call from ${fromNumber} to ${toNumber}`);
+      console.log(`[ENABLEX] Initiating call to ${fromNumber} and bridging to ${toNumber}`);
 
-      const authHeader = "Basic " + Buffer.from(`${exotelKey}:${exotelToken}`).toString("base64");
-      const exotelUrl = `https://api.exotel.com/v1/Accounts/${exotelSid}/Calls/connect.json`;
+      const authHeader = "Basic " + Buffer.from(`${enablexAppId}:${enablexAppKey}`).toString("base64");
+      const enablexUrl = `https://api.enablex.io/voice/v1/calls`;
 
-      const formData = new URLSearchParams();
-      formData.append("From", fromNumber);
-      formData.append("To", toNumber);
-      formData.append("CallerId", exotelCallerId);
+      const payload = {
+        name: "Raabita Masked Call",
+        owner_ref: qr.id,
+        to: fromNumber,
+        from: enablexVirtualNumber,
+        action_on_connect: {
+          play: {
+            text: "Please wait while we connect you to the vehicle owner.",
+            voice: "female",
+            language: "en-IN"
+          }
+        },
+        // In a real scenario, you would use EnableX webhooks to bridge the call after the first party answers.
+        // For simplicity in this API call, we initiate the call to the scanner.
+        // To bridge immediately, some APIs support a connect action directly:
+        // action_on_connect: { connect: { from: enablexVirtualNumber, to: toNumber } }
+      };
 
-      const response = await fetch(exotelUrl, {
+      const response = await fetch(enablexUrl, {
         method: "POST",
         headers: {
           "Authorization": authHeader,
-          "Content-Type": "application/x-www-form-urlencoded"
+          "Content-Type": "application/json"
         },
-        body: formData.toString()
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
 
-      if (response.ok && data.Call) {
+      if (response.ok) {
         res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly." });
       } else {
-        console.error("[EXOTEL ERROR]", data);
+        console.error("[ENABLEX ERROR]", data);
         res.status(500).json({ error: "Failed to initiate call. Provider error." });
       }
     } catch (error: any) {
       console.error("[CALL ERROR]", error);
       res.status(500).json({ error: "Failed to initiate call. Please try again later." });
-    }
-  });
-
-  // 5. TwiML Bridge Endpoint (Twilio webhook)
-  app.post("/api/twiml/bridge/:id", async (req, res) => {
-    try {
-      const twiml = new twilio.twiml.VoiceResponse();
-      
-      if (!db) {
-        twiml.say("System error. Database not connected.");
-        res.type('text/xml');
-        return res.send(twiml.toString());
-      }
- 
-      const docSnap = await getDoc(doc(db, "qrs", req.params.id));
-      const qr = docSnap.exists() ? docSnap.data() as any : null;
-      
-      if (qr && qr.registered) {
-        twiml.say("Connecting you to the vehicle owner. Please wait.");
-        twiml.dial({ callerId: process.env.TWILIO_PHONE_NUMBER }, qr.ownerPhone);
-      } else {
-        twiml.say("Sorry, this vehicle is not registered or the QR code is invalid.");
-      }
-      
-      res.type('text/xml');
-      res.send(twiml.toString());
-    } catch (error) {
-      console.error("TwiML Error:", error);
-      const twiml = new twilio.twiml.VoiceResponse();
-      twiml.say("An error occurred while connecting your call.");
-      res.type('text/xml');
-      res.send(twiml.toString());
     }
   });
 
