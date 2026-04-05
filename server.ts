@@ -217,7 +217,14 @@ async function startServer() {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("[ENABLEX RAW RESPONSE]", responseText);
+        data = { message: "Invalid JSON response from provider" };
+      }
 
       if (response.ok) {
         res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly." });
