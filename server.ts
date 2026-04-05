@@ -189,7 +189,7 @@ async function startServer() {
       console.log(`[ENABLEX] Initiating call to ${fromNumber} and bridging to ${toNumber}`);
 
       const authHeader = "Basic " + Buffer.from(`${enablexAppId}:${enablexAppKey}`).toString("base64");
-      const enablexUrl = `https://api.enablex.io/voice/v1/calls`;
+      const enablexUrl = `https://api.enablex.io/voice/v1/call`;
 
       const payload = {
         name: "Raabita Masked Call",
