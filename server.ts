@@ -168,7 +168,7 @@ async function startServer() {
       // EnableX Integration for Masked Calling
       const enablexAppId = process.env.ENABLEX_APP_ID;
       const enablexAppKey = process.env.ENABLEX_APP_KEY;
-      const enablexVirtualNumber = process.env.ENABLEX_VIRTUAL_NUMBER;
+      const enablexVirtualNumber = process.env.ENABLEX_VIRTUAL_NUMBER?.replace(/\s+/g, '');
 
       if (!enablexAppId || !enablexAppKey || !enablexVirtualNumber || enablexAppId === "your_enablex_app_id") {
         console.log(`[MOCK ENABLEX] Bridging call between ${callerPhone} and ${qr.ownerPhone}`);
