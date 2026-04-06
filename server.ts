@@ -16,6 +16,10 @@ import {
   serverTimestamp 
 } from "firebase/firestore";
 import fs from "fs";
+import dotenv from "dotenv";
+
+// Load environment variables from .env.example
+dotenv.config({ path: ".env.example" });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -170,7 +174,7 @@ async function startServer() {
       const exotelApiToken = process.env.EXOTEL_API_TOKEN;
       const exotelAccountSid = process.env.EXOTEL_ACCOUNT_SID;
       const exotelSubdomain = process.env.EXOTEL_SUBDOMAIN || "api.exotel.com";
-      const exotelVirtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER?.replace(/\s+/g, '');
+      const exotelVirtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER?.replace(/\D/g, '');
 
       console.log("[DEBUG ENV]", {
         hasKey: !!exotelApiKey,
@@ -200,6 +204,8 @@ async function startServer() {
 
       const authHeader = "Basic " + Buffer.from(`${exotelApiKey}:${exotelApiToken}`).toString("base64");
       const exotelUrl = `https://${exotelSubdomain}/v1/Accounts/${exotelAccountSid}/Calls/connect.json`;
+      
+      console.log("[DEBUG EXOTEL URL]", exotelUrl);
 
       // Exotel expects form-encoded data
       const params = new URLSearchParams();
