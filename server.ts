@@ -172,6 +172,14 @@ async function startServer() {
       const exotelSubdomain = process.env.EXOTEL_SUBDOMAIN || "api.exotel.com";
       const exotelVirtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER?.replace(/\s+/g, '');
 
+      console.log("[DEBUG ENV]", {
+        hasKey: !!exotelApiKey,
+        hasToken: !!exotelApiToken,
+        hasSid: !!exotelAccountSid,
+        hasVirtual: !!exotelVirtualNumber,
+        subdomain: exotelSubdomain
+      });
+
       if (!exotelApiKey || !exotelApiToken || !exotelAccountSid || !exotelVirtualNumber) {
         console.log(`[MOCK EXOTEL] Bridging call between ${callerPhone} and ${qr.ownerPhone}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
