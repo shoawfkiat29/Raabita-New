@@ -165,56 +165,48 @@ async function startServer() {
         return res.status(404).json({ error: "Invalid or unregistered QR Code" });
       }
 
-      // EnableX Integration for Masked Calling
-      const enablexAppId = process.env.ENABLEX_APP_ID;
-      const enablexAppKey = process.env.ENABLEX_APP_KEY;
-      const enablexVirtualNumber = process.env.ENABLEX_VIRTUAL_NUMBER?.replace(/\s+/g, '');
+      // Exotel Integration for Masked Calling
+      const exotelApiKey = process.env.EXOTEL_API_KEY;
+      const exotelApiToken = process.env.EXOTEL_API_TOKEN;
+      const exotelAccountSid = process.env.EXOTEL_ACCOUNT_SID;
+      const exotelSubdomain = process.env.EXOTEL_SUBDOMAIN || "api.exotel.com";
+      const exotelVirtualNumber = process.env.EXOTEL_VIRTUAL_NUMBER?.replace(/\s+/g, '');
 
-      if (!enablexAppId || !enablexAppKey || !enablexVirtualNumber || enablexAppId === "your_enablex_app_id") {
-        console.log(`[MOCK ENABLEX] Bridging call between ${callerPhone} and ${qr.ownerPhone}`);
+      if (!exotelApiKey || !exotelApiToken || !exotelAccountSid || !exotelVirtualNumber) {
+        console.log(`[MOCK EXOTEL] Bridging call between ${callerPhone} and ${qr.ownerPhone}`);
         await new Promise(resolve => setTimeout(resolve, 1500));
-        return res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly. (Mock Mode - Add EnableX credentials for real calls)" });
+        return res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly. (Mock Mode - Add Exotel credentials for real calls)" });
       }
 
-      // Format numbers (EnableX expects E.164 format or standard country code without '+')
+      // Format numbers (Exotel expects E.164 format or standard country code)
       const formatPhone = (p: string) => {
         const num = p.replace(/\D/g, '');
         // If it's a 10 digit Indian number, prefix with 91
-        return num.length === 10 ? `+91${num}` : `+${num}`;
+        return num.length === 10 ? `91${num}` : num;
       };
 
       const fromNumber = formatPhone(callerPhone); // The person scanning
       const toNumber = formatPhone(qr.ownerPhone); // The vehicle owner
 
-      console.log(`[ENABLEX] Initiating call to ${fromNumber} and bridging to ${toNumber}`);
+      console.log(`[EXOTEL] Initiating call to ${fromNumber} and bridging to ${toNumber}`);
 
-      const authHeader = "Basic " + Buffer.from(`${enablexAppId}:${enablexAppKey}`).toString("base64");
-      const enablexUrl = `https://api.enablex.io/voice/v1/call`;
+      const authHeader = "Basic " + Buffer.from(`${exotelApiKey}:${exotelApiToken}`).toString("base64");
+      const exotelUrl = `https://${exotelSubdomain}/v1/Accounts/${exotelAccountSid}/Calls/connect.json`;
 
-      const payload = {
-        name: "Raabita Masked Call",
-        owner_ref: qr.id,
-        to: fromNumber,
-        from: enablexVirtualNumber,
-        action_on_connect: {
-          connect: {
-            from: enablexVirtualNumber,
-            to: toNumber
-          }
-        }
-        // In a real scenario, you would use EnableX webhooks to bridge the call after the first party answers.
-        // For simplicity in this API call, we initiate the call to the scanner.
-        // To bridge immediately, some APIs support a connect action directly:
-        // action_on_connect: { connect: { from: enablexVirtualNumber, to: toNumber } }
-      };
+      // Exotel expects form-encoded data
+      const params = new URLSearchParams();
+      params.append("From", fromNumber);
+      params.append("To", toNumber);
+      params.append("CallerId", exotelVirtualNumber);
+      params.append("CallType", "transient");
 
-      const response = await fetch(enablexUrl, {
+      const response = await fetch(exotelUrl, {
         method: "POST",
         headers: {
           "Authorization": authHeader,
-          "Content-Type": "application/json"
+          "Content-Type": "application/x-www-form-urlencoded"
         },
-        body: JSON.stringify(payload)
+        body: params.toString()
       });
 
       const responseText = await response.text();
@@ -222,14 +214,14 @@ async function startServer() {
       try {
         data = JSON.parse(responseText);
       } catch (e) {
-        console.error("[ENABLEX RAW RESPONSE]", responseText);
+        console.error("[EXOTEL RAW RESPONSE]", responseText);
         data = { message: "Invalid JSON response from provider" };
       }
 
       if (response.ok) {
         res.json({ success: true, message: "Call initiated successfully. Your phone will ring shortly." });
       } else {
-        console.error("[ENABLEX ERROR]", data);
+        console.error("[EXOTEL ERROR]", data);
         res.status(500).json({ error: "Failed to initiate call. Provider error." });
       }
     } catch (error: any) {
